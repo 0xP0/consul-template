@@ -5,25 +5,16 @@ import sys
 
 import requests
 from jinja2 import Environment, FileSystemLoader
-
+from config import (
+    CONSUL_HOST,
+    CONSUL_PORT,
+    SERVICE_NAMES,
+    TEMPLATE_DIR,
+    TEMPLATE_FILE,
+    OUTPUT_DIR,
+    OPENRESTY_RELOAD_CMD,
+)
 # 配置参数
-CONSUL_HOST = "127.0.0.1"
-CONSUL_PORT = 8500
-SERVICES = [
-    "diplo-service",
-    "gary-service",
-    "dave-service",
-    "gmoney-service",
-    "gmoney-service",
-    "illia-service",
-    "lex-service",
-]
-TEMPLATE_DIR = "/etc/consul-template/templates"
-# TEMPLATE_DIR = "templates"
-TEMPLATE_FILE = "nginx_split_upstream.j2"
-OUTPUT_DIR = "/usr/local/openresty/nginx/conf/conf.d/wan/"
-# OUTPUT_DIR = "wan/"
-OPENRESTY_RELOAD_CMD = "openresty -s reload"
 
 
 def get_service_instances(service_name):
@@ -39,7 +30,7 @@ def get_service_instances(service_name):
 
 def fetch_services():
     services = []
-    for service_name in SERVICES:
+    for service_name in SERVICE_NAMES:
         instances = get_service_instances(service_name)
         service_info = {"name": service_name, "instances": instances}
         services.append(service_info)
