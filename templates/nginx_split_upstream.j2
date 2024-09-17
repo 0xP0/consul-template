@@ -1,0 +1,60 @@
+{% for service in services %}
+split_clients "${request_id}" $backend_server_{{ service.name|replace('-service', '') }} {
+    {% set total_weight = service.instances | length %}
+    {% if total_weight > 0 %}
+        {% set ns = namespace(total_assigned=0) %}
+        {% for instance in service.instances %}
+            {% if not loop.last %}
+                {% set percent = (100 / total_weight) |int %}
+    {{ '%d' | format(percent) }}% "{{ instance.ServiceAddress }}";
+                {% set ns.total_assigned = ns.total_assigned + percent %}
+            {% else %}
+    {{ '%d' | format(100.0 - ns.total_assigned) }}% "{{ instance.ServiceAddress }}";
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        100% "localhost:8080";
+    {% endif %}
+}
+
+server {
+    listen 80;
+    server_name {{ service.name|replace('-service', '') }}-all.us.gaianet.network;
+
+    # 包含 SSL 配置（确保此文件包含必要的 SSL 指令，如 ssl_certificate 和 ssl_certificate_key）
+    include ssl/api.gaianet.network;
+
+    # 定义 DNS 解析器
+    resolver 8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout 10s;
+
+    # 处理 favicon 请求
+    location = /favicon.ico {
+        return 200 "";
+    }
+
+    # 主请求处理
+    location / {
+        # 根据 split_clients 模块的结果，将请求代理到相应的后端服务器
+        proxy_pass https://$backend_server_{{ service.name|replace('-service', '') }};
+
+        # 设置 Host 头为选择的后端服务器主机名
+        proxy_set_header Host $backend_server_{{ service.name|replace('-service', '') }};
+
+        # 转发客户端信息
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # 支持 WebSocket
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # 超时设置（根据需要调整）
+        proxy_read_timeout 90;
+        proxy_send_timeout 90;
+    }
+}
+
+{% endfor %}
